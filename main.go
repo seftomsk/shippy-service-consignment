@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
+	pb "github.com/seftomsk/shippy-service-consignment/proto/consignment"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"log"
 	"net"
-	pb "github.com/seftomsk/shippy-service-consignment/proto/consignment"
 	"sync"
 )
 
@@ -14,12 +14,13 @@ const port = ":50051"
 
 type repository interface {
 	Create(*pb.Consignment) (*pb.Consignment, error)
+	GetAll() []*pb.Consignment
 }
 
 // Repository - Dummy repository, this simulates the use of a datastore
 // of some kind. We'll replace this with a real implementation later on.
 type Repository struct {
-	mu sync.RWMutex
+	mu           sync.RWMutex
 	consignments []*pb.Consignment
 }
 
@@ -32,6 +33,11 @@ func (r *Repository) Create(consignment *pb.Consignment) (*pb.Consignment, error
 	return consignment, nil
 }
 
+// GetAll consignments
+func (r *Repository) GetAll() []*pb.Consignment {
+	return r.consignments
+}
+
 // Service should implement all of the methods to satisfy the service
 // we defined in our protobuf definition. You can check the interface
 // in the generated code itself for the exact method signatures etc
@@ -40,9 +46,9 @@ type service struct {
 	repo repository
 }
 
-func (s *service) CreateConsignment(_ context.Context, consignment *pb.Consignment) (*pb.Response, error) {
+func (s *service) CreateConsignment(_ context.Context, in *pb.Consignment) (*pb.Response, error) {
 	// Save our consignment
-	consignment, err := s.repo.Create(consignment)
+	consignment, err := s.repo.Create(in)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +57,11 @@ func (s *service) CreateConsignment(_ context.Context, consignment *pb.Consignme
 	// protobuf definition.
 
 	return &pb.Response{Created: true, Consignment: consignment}, nil
+}
+
+func (s *service) GetConsignments(ctx context.Context, in *pb.GetRequest) (*pb.Response, error) {
+	consignments := s.repo.GetAll()
+	return &pb.Response{Consignments: consignments}, nil
 }
 
 func main() {
